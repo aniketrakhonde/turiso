@@ -285,7 +285,7 @@ function planner(){
  const est=perDay*Math.max(n,0)*P.trav*mult;
  const split=[['Transport',.3],['Accommodation',.35],['Food',.2],['Activities',.1],['Other',.05]];
  return `<h1>Trip planner</h1>${notice('Budgets are <strong>estimates</strong> derived from sample per-person figures. They are not confirmed booking prices.')}
- <div class="layout" style="margin-top:14px"><aside class="panel"><strong>Destinations</strong><div class="row">${D.map(x=>`<button class="chip ${P.dests.includes(x.id)?'on':''}" data-act="pd" data-id="${x.id}" aria-pressed="${P.dests.includes(x.id)}">${esc(x.name.split(' ')[0])}</button>`).join('')}</div>
+ <div class="layout" style="margin-top:14px"><aside class="panel"><strong>Destinations</strong><div class="row">${D.map(x=>`<button class="chip ${P.dests.includes(x.id)?'on':''}" data-act="pd" data-id="${x.id}" aria-pressed="${P.dests.includes(x.id)}">${esc(x.name.replace(/ \(.*\)/,''))}</button>`).join('')}</div>
  <label class="f">Departure<input type="date" id="ps" value="${P.start}" min="${iso(new Date())}"></label><label class="f">Return<input type="date" id="pe" value="${P.end}" min="${P.start||iso(new Date())}"></label>
  <label class="f">Travelers<input type="number" id="pt" min="1" max="20" value="${P.trav}"></label><label class="f">Total budget (₹)<input type="number" id="pb" min="0" step="1000" value="${P.budget}"></label>
  <label class="f">Travel style<select id="pst">${['budget','standard','luxury','family','adventure','solo'].map(s=>`<option ${P.style===s?'selected':''}>${s}</option>`).join('')}</select></label>
@@ -449,7 +449,7 @@ document.addEventListener('click',async e=>{
  if(act==='mup'){if(i>0){[M.stops[i-1],M.stops[i]]=[M.stops[i],M.stops[i-1]]}render();return}
  if(act==='mroute'){$('#mmsg').textContent='Cannot calculate road route: no routing provider (Mapbox/Google) is configured. Straight-line legs below are not driving distances.';return}
  if(act==='pd'){const k=P.dests.indexOf(id);k>=0?P.dests.splice(k,1):P.dests.push(id);render();return}
- if(act==='gen'){readP();const m=$('#pmsg');if(!P.dests.length)return m.textContent='Choose at least one destination.';if(!P.start||!P.end)return m.textContent='Choose departure and return dates.';if(P.end<P.start)return m.textContent='Return date must be after departure.';if((new Date(P.end)-new Date(P.start))/864e5>20)return m.textContent='Please keep trips to 21 days or fewer.';if(Math.round((new Date(P.end)-new Date(P.start))/864e5)+1<P.dests.length)return m.textContent='Choose at least as many days as destinations.';genItin();render();return}
+ if(act==='gen'){readP();const m=$('#pmsg');if(!P.dests.length)return m.textContent='Choose at least one destination.';if(!P.start||!P.end)return m.textContent='Choose departure and return dates.';if(P.start<iso(new Date()))return m.textContent='Departure date cannot be in the past (check the year).';if(P.end<P.start)return m.textContent='Return date must be on or after departure.';if((new Date(P.end)-new Date(P.start))/864e5>20)return m.textContent='Please keep trips to 21 days or fewer.';if(Math.round((new Date(P.end)-new Date(P.start))/864e5)+1<P.dests.length)return m.textContent='Choose at least as many days as destinations.';genItin();render();return}
  if(act==='sup'&&j>0){const s=P.days[i].stops;[s[j-1],s[j]]=[s[j],s[j-1]];render();return}
  if(act==='sdn'){const s=P.days[i].stops;if(j<s.length-1){[s[j+1],s[j]]=[s[j],s[j+1]]}render();return}
  if(act==='srm'){P.days[i].stops.splice(j,1);render();return}
@@ -471,7 +471,8 @@ document.addEventListener('input',e=>{const t=e.target.id;
  if(t==='mo'){M.o=$('#mo').value;render()}if(t==='ms'&&$('#ms').value){if(!M.stops.includes($('#ms').value))M.stops.push($('#ms').value);render()}
  if(['cd','ca','cc'].includes(t)&&CK){CK.date=$('#cd').value;CK.ad=Math.max(1,+$('#ca').value||1);CK.ch=Math.max(0,+$('#cc').value||0);$('#sum').innerHTML=sum(PK.find(p=>p.id===CK.pid))}});
 document.addEventListener('change',e=>{const t=e.target.id;
- if(['ps','pe','pt','pb','pst'].includes(t)){readP();if(t==='ps'&&P.end&&P.end<P.start)P.end='';render()}
+if(['ps','pe','pt','pb','pst'].includes(t)){readP();if(t==='ps'){const pe=$('#pe');if(pe){pe.min=P.start||iso(new Date());if(P.end&&P.start&&P.end<P.start){P.end='';pe.value=''}}}
+if((t==='pt'||t==='pb'||t==='pst')&&P.days.length)render()}
  if(t==='photo'){const f=e.target.files[0],id=e.target.dataset.id;if(!f)return;if(!f.type.startsWith('image/'))return toast('Please choose an image file');
   const fr=new FileReader();fr.onerror=()=>toast('Could not read that file');fr.onload=()=>{const img=new Image();img.onerror=()=>toast('Could not read that image');img.onload=()=>{const sc=Math.min(1,900/img.width),c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext('2d').drawImage(img,0,0,c.width,c.height);const old=PH[id];PH[id]=c.toDataURL('image/jpeg',.8);if(!savePH()){if(old)PH[id]=old;else delete PH[id];return toast('Image too large for browser storage')}toast('Photo added (stored only on this device)');render()};img.src=fr.result};fr.readAsDataURL(f)}});
 document.addEventListener('error',e=>{if(e.target&&e.target.tagName==='IMG'&&e.target.dataset.ph)e.target.remove()},true);
